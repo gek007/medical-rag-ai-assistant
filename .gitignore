@@ -1,0 +1,25 @@
+# Environment variables — never commit real keys
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+*.egg-info/
+
+# Logs
+logs/
+!logs/.gitkeep
+
+# Uploaded files
+uploaded_docs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
