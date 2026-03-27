@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from auth import auth_router
+from chat import chat_router
 from config.logger import get_logger
 from docs import docs_router
 
@@ -14,6 +15,7 @@ logger = get_logger("main")
 app = FastAPI()
 app.include_router(auth_router)
 app.include_router(docs_router)
+app.include_router(chat_router)
 
 
 @app.middleware("http")
