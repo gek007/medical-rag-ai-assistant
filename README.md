@@ -81,8 +81,7 @@ See `.env.example` for all required variables:
 - `PINECONE_INDEX_NAME` — Pinecone index name (e.g. `medical-rag`)
 
 
-=====================
-
+===================== How to create users ==========================
 
 1. \Signup : admin/docotor/user
 
@@ -97,5 +96,7 @@ See `.env.example` for all required variables:
    user: man 
    passw: pass123  
    role: doctor   
+
+=================== !!!!!!!!!!!!!!!!!!!!!! =======================
 
 
