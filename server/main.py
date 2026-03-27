@@ -9,6 +9,7 @@ from config.logger import get_logger
 from docs import docs_router
 
 logger = get_logger("main")
+logger.info("main module initialized")
 
 app = FastAPI()
 app.include_router(auth_router)
@@ -31,7 +32,10 @@ async def request_logger(request: Request, call_next):
         elapsed = (time.perf_counter() - start) * 1000
         logger.error(
             "← RESPONSE | method=%s path=%s status=500 duration=%.1fms error=%s",
-            request.method, request.url.path, elapsed, exc,
+            request.method,
+            request.url.path,
+            elapsed,
+            exc,
             exc_info=True,
         )
         raise
@@ -40,7 +44,10 @@ async def request_logger(request: Request, call_next):
     level = logger.warning if response.status_code >= 400 else logger.info
     level(
         "← RESPONSE | method=%s path=%s status=%d duration=%.1fms",
-        request.method, request.url.path, response.status_code, elapsed,
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed,
     )
     return response
 
@@ -49,7 +56,9 @@ async def request_logger(request: Request, call_next):
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(
         "Unhandled exception | method=%s path=%s error=%s",
-        request.method, request.url.path, exc,
+        request.method,
+        request.url.path,
+        exc,
         exc_info=True,
     )
     return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
