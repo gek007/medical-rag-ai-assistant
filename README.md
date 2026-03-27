@@ -79,3 +79,24 @@ See `.env.example` for all required variables:
 - `PINECONE_API_KEY` — Pinecone API key
 - `PINECONE_ENVIRONMENT` — Pinecone region (e.g. `us-east-1`)
 - `PINECONE_INDEX_NAME` — Pinecone index name (e.g. `medical-rag`)
+
+
+===================== How to create users ==========================
+
+1. \Signup : admin/docotor/user
+
+2. \login  (role = admin)
+
+   user: super 
+   passw: pass123
+   role: admin 
+
+3. Chat /chat (role doctor)
+
+   user: man 
+   passw: pass123  
+   role: doctor   
+
+=================== !!!!!!!!!!!!!!!!!!!!!! =======================
+
+
