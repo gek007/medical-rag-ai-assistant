@@ -1,6 +1,7 @@
 import os
 import time
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
@@ -65,7 +66,7 @@ def get_index():
         raise
 
 
-def load_vectorestore(uploaded_files: list, role: str, doc_id: str) -> None:
+def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "user"], doc_id: str) -> None:
     logger.info("Starting vectorstore load | doc_id=%s role=%s files=%d", doc_id, role, len(uploaded_files))
 
     try:

@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
@@ -17,7 +18,7 @@ router = APIRouter()
 def upload_docs(
     user=Depends(authenticate),
     file: UploadFile = File(...),
-    role: str = Form(...),
+    role: Literal["doctor", "admin", "user"] = Form(...),
 ):
     logger.info(
         "Upload request | user=%s user_role=%s file=%s target_role=%s",
