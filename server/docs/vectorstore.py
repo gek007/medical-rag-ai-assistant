@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from pathlib import Path
@@ -45,7 +46,8 @@ def get_index():
         if PINECONE_INDEX_NAME not in existing_indexes:
             logger.info(
                 "Index not found — creating | index=%s region=%s",
-                PINECONE_INDEX_NAME, PINECONE_ENVIRONMENT,
+                PINECONE_INDEX_NAME,
+                PINECONE_ENVIRONMENT,
             )
             pc.create_index(
                 name=PINECONE_INDEX_NAME,
@@ -53,7 +55,9 @@ def get_index():
                 metric="dotproduct",
                 spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
             )
-            logger.info("Waiting for index to become ready | index=%s", PINECONE_INDEX_NAME)
+            logger.info(
+                "Waiting for index to become ready | index=%s", PINECONE_INDEX_NAME
+            )
             while not pc.describe_index(PINECONE_INDEX_NAME).status.ready:
                 time.sleep(1)
             logger.info("Index is ready | index=%s", PINECONE_INDEX_NAME)
@@ -66,17 +70,29 @@ def get_index():
         raise
 
 
-def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "user"], doc_id: str) -> None:
-    logger.info("Starting vectorstore load | doc_id=%s role=%s files=%d", doc_id, role, len(uploaded_files))
+async def load_vectorestore(
+    uploaded_files: list, role: Literal["doctor", "admin", "user"], doc_id: str
+) -> None:
+    logger.info(
+        "Starting vectorstore load | doc_id=%s role=%s files=%d",
+        doc_id,
+        role,
+        len(uploaded_files),
+    )
 
     try:
         index = get_index()
     except Exception:
-        logger.error("Aborting vectorstore load — could not get Pinecone index | doc_id=%s", doc_id)
+        logger.error(
+            "Aborting vectorstore load — could not get Pinecone index | doc_id=%s",
+            doc_id,
+        )
         raise
 
     embed_model = OpenAIEmbeddings(model="text-embedding-3-small", dimensions=768)
-    logger.info("Embedding model initialized | model=text-embedding-3-small dimensions=768")
+    logger.info(
+        "Embedding model initialized | model=text-embedding-3-small dimensions=768"
+    )
 
     for file in uploaded_files:
         save_path = Path(UPLOAD_DIR) / file.filename
@@ -87,7 +103,12 @@ def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "us
                 f.write(file.file.read())
             logger.info("File saved | file=%s", file.filename)
         except Exception as e:
-            logger.error("Failed to save file | file=%s error=%s", file.filename, e, exc_info=True)
+            logger.error(
+                "Failed to save file | file=%s error=%s",
+                file.filename,
+                e,
+                exc_info=True,
+            )
             raise
 
         logger.info("Loading PDF | file=%s", file.filename)
@@ -96,12 +117,18 @@ def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "us
             documents = loader.load()
             logger.info("PDF loaded | file=%s pages=%d", file.filename, len(documents))
         except Exception as e:
-            logger.error("Failed to load PDF | file=%s error=%s", file.filename, e, exc_info=True)
+            logger.error(
+                "Failed to load PDF | file=%s error=%s", file.filename, e, exc_info=True
+            )
             raise
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500, chunk_overlap=100
+        )
         chunks = text_splitter.split_documents(documents)
-        logger.info("Text split into chunks | file=%s chunks=%d", file.filename, len(chunks))
+        logger.info(
+            "Text split into chunks | file=%s chunks=%d", file.filename, len(chunks)
+        )
 
         texts = [chunk.page_content for chunk in chunks]
         ids = [f"{doc_id}-{i}" for i in range(len(chunks))]
@@ -115,12 +142,20 @@ def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "us
             for chunk in chunks
         ]
 
-        logger.info("Generating embeddings | file=%s chunks=%d", file.filename, len(texts))
+        logger.info(
+            "Generating embeddings | file=%s chunks=%d", file.filename, len(texts)
+        )
         try:
-            embeddings = embed_model.embed_documents(texts)
-            logger.info("Embeddings generated | file=%s count=%d", file.filename, len(embeddings))
+            embeddings = await asyncio.to_thread(embed_model.embed_documents, texts)
+            logger.info(
+                "Embeddings generated | file=%s count=%d",
+                file.filename,
+                len(embeddings),
+            )
         except Exception as e:
-            logger.error("Embedding failed | file=%s error=%s", file.filename, e, exc_info=True)
+            logger.error(
+                "Embedding failed | file=%s error=%s", file.filename, e, exc_info=True
+            )
             raise
 
         vectors = [
@@ -131,7 +166,9 @@ def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "us
         batch_size = 100
         logger.info(
             "Upserting vectors to Pinecone | file=%s vectors=%d batch_size=%d",
-            file.filename, len(vectors), batch_size,
+            file.filename,
+            len(vectors),
+            batch_size,
         )
         try:
             with tqdm(total=len(vectors), desc=f"Uploading {file.filename}") as pbar:
@@ -141,11 +178,22 @@ def load_vectorestore(uploaded_files: list, role: Literal["doctor", "admin", "us
                     pbar.update(len(batch))
                     logger.info(
                         "Batch upserted | file=%s batch=%d-%d",
-                        file.filename, i, i + len(batch),
+                        file.filename,
+                        i,
+                        i + len(batch),
                     )
-            logger.info("Vectors upserted | file=%s vectors=%d", file.filename, len(vectors))
+            logger.info(
+                "Vectors upserted | file=%s vectors=%d", file.filename, len(vectors)
+            )
         except Exception as e:
-            logger.error("Pinecone upsert failed | file=%s error=%s", file.filename, e, exc_info=True)
+            logger.error(
+                "Pinecone upsert failed | file=%s error=%s",
+                file.filename,
+                e,
+                exc_info=True,
+            )
             raise
 
-        logger.info("Vectorstore load complete | doc_id=%s file=%s", doc_id, file.filename)
+        logger.info(
+            "Vectorstore load complete | doc_id=%s file=%s", doc_id, file.filename
+        )
