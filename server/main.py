@@ -9,7 +9,7 @@ from config.logger import get_logger
 from docs import docs_router
 
 logger = get_logger("main")
-logger.info("main module initialized")
+
 
 app = FastAPI()
 app.include_router(auth_router)
@@ -70,5 +70,5 @@ def health_check():
 
 
 if __name__ == "__main__":
-    logger.info("Starting server on 0.0.0.0:8000")
+    logger.info("\n\nStarting server on 0.0.0.0:8000")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
