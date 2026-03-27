@@ -14,11 +14,16 @@ router = APIRouter()
 
 
 @router.post("/upload")
-def upload_docs(
+async def upload_docs(
     user=Depends(authenticate),
     file: UploadFile = File(...),
     role: str = Form(...),
 ):
+    role = role.strip()
+    valid_roles: tuple[str, ...] = ("doctor", "admin", "user")
+    if role not in valid_roles:
+        raise HTTPException(status_code=422, detail=f"role must be one of: {', '.join(valid_roles)}")
+
     logger.info(
         "Upload request | user=%s user_role=%s file=%s target_role=%s",
         user["username"],
@@ -39,7 +44,7 @@ def upload_docs(
     logger.info("Processing upload | doc_id=%s file=%s", doc_id, file.filename)
 
     try:
-        load_vectorestore([file], role, doc_id)
+        await load_vectorestore([file], role, doc_id)
     except Exception as e:
         logger.error(
             "Upload failed | doc_id=%s file=%s error=%s",

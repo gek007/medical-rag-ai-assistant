@@ -10,6 +10,7 @@ __pycache__/
 *.egg-info/
 
 # Logs
+*.log
 logs/
 !logs/.gitkeep
 
