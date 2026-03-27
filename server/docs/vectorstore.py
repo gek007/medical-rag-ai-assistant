@@ -99,8 +99,9 @@ async def load_vectorestore(
         logger.info("Saving uploaded file | file=%s path=%s", file.filename, save_path)
 
         try:
+            contents = await file.read()
             with open(save_path, "wb") as f:
-                f.write(file.file.read())
+                f.write(contents)
             logger.info("File saved | file=%s", file.filename)
         except Exception as e:
             logger.error(
@@ -183,7 +184,9 @@ async def load_vectorestore(
                         i + len(batch),
                     )
             logger.info(
-                "Vectors upserted | file=%s vectors=%d", file.filename, len(vectors)
+                "Vectors upserted | file=%s num_chunks=%d",
+                file.filename,
+                len(vectors),
             )
         except Exception as e:
             logger.error(
