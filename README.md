@@ -83,7 +83,7 @@ See `.env.example` for all required variables:
 
 ===================== How to create users ==========================
 
-1. \Signup : admin/docotor/user
+1. \Signup : admin/doctor/user
 
 2. \login  (role = admin)
 
