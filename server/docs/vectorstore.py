@@ -128,7 +128,10 @@ async def load_vectorestore(
         )
         chunks = text_splitter.split_documents(documents)
         logger.info(
-            "Text split into chunks | file=%s chunks=%d", file.filename, len(chunks)
+            "Text split into chunks | file=%s chunks=%d chunk_size=%d",
+            file.filename,
+            len(chunks),
+            text_splitter.chunk_size,
         )
 
         texts = [chunk.page_content for chunk in chunks]
@@ -144,7 +147,10 @@ async def load_vectorestore(
         ]
 
         logger.info(
-            "Generating embeddings | file=%s chunks=%d", file.filename, len(texts)
+            "Generating embeddings | file=%s chunks=%d chunk_size=%d",
+            file.filename,
+            len(texts),
+            text_splitter.chunk_size,
         )
         try:
             embeddings = await asyncio.to_thread(embed_model.embed_documents, texts)
