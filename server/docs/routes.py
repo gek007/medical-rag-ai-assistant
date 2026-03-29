@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from auth import authenticate
 from config.logger import get_logger
 
-from .vectorstore import load_vectorestore
+from .vectorstore import load_vectorstore
 
 logger = get_logger("docs.routes")
 logger.info("docs.routes module initialized")
@@ -44,7 +44,7 @@ async def upload_docs(
     logger.info("Processing upload | doc_id=%s file=%s", doc_id, file.filename)
 
     try:
-        await load_vectorestore([file], role, doc_id)
+        await load_vectorstore([file], role, doc_id)
     except Exception as e:
         logger.error(
             "Upload failed | doc_id=%s file=%s error=%s",

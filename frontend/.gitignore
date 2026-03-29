@@ -1,0 +1,76 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyd
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Package managers
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+secrets/
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.hypothesis/
+
+# Type checking & linting
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# Logs
+*.log
+logs/
+!logs/.gitkeep
+
+# Database & vector stores
+*.db
+*.sqlite
+*.sqlite3
+chroma/
+faiss_index/
+vectorstore/
+embeddings_cache/
+
+# AI / ML model artifacts
+models/
+*.bin
+*.safetensors
+*.gguf
+*.pkl
+*.pt
+*.pth
+__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

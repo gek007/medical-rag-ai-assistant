@@ -15,7 +15,8 @@ logs/
 !logs/.gitkeep
 
 # Uploaded files
-uploaded_docs/
+uploaded_docs/*
+!uploaded_docs/.gitkeep
 
 # IDE
 .vscode/
@@ -24,3 +25,9 @@ uploaded_docs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code local settings
+.claude/
+
+# Playwright / test screenshots
+*.png

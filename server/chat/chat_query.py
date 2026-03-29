@@ -1,5 +1,6 @@
 import asyncio
 import os
+from typing import TypedDict
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
@@ -19,13 +20,22 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
+if not OPENAI_API_KEY:
+    logger.error("OPENAI_API_KEY is not set in environment")
+if not PINECONE_API_KEY:
+    logger.error("PINECONE_API_KEY is not set in environment")
+if not GROQ_API_KEY:
+    logger.error("GROQ_API_KEY is not set in environment")
+if not PINECONE_INDEX_NAME:
+    logger.error("PINECONE_INDEX_NAME is not set in environment")
+
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
 embed_model = OpenAIEmbeddings(model="text-embedding-3-small", dimensions=768)
 logger.info("Embedding model initialized | model=text-embedding-3-small dimensions=768")
 
-llm = ChatGroq(model="llama-3.1-8b-instant", api_key=os.getenv("GROQ_API_KEY"))
+llm = ChatGroq(model="llama-3.1-8b-instant", api_key=GROQ_API_KEY)
 logger.info("LLM model initialized | model=llama-3.1-8b-instant")
 
 prompt = ChatPromptTemplate.from_messages(
@@ -46,7 +56,12 @@ rag_chain = prompt | llm
 logger.info("Chain initialized")
 
 
-async def answer_question(question: str, user_role: str) -> str:
+class AnswerResponse(TypedDict):
+    answer: str
+    sources: list[str]
+
+
+async def answer_question(question: str, user_role: str) -> AnswerResponse:
 
     try:
         # Embed the user's question as usual
@@ -58,18 +73,29 @@ async def answer_question(question: str, user_role: str) -> str:
         filtered_context = []
         sources = set()
 
+        logger.info(
+            "Querying Pinecone | question=%s user_role=%s matches=%d",
+            question[:200],
+            user_role,
+            len(results["matches"]),
+        )
+
         for match in results["matches"]:
             metadata = match["metadata"]
             if metadata.get("role") == user_role:
                 filtered_context.append(metadata.get("text", ""))
                 sources.add(metadata.get("source"))
+            else:
+                logger.debug("Skipping context | no match found in role=%s", user_role)
 
         if not filtered_context:
-            return "No relevant information found for your question."
+            return {"answer": "No relevant information found for your question.", "sources": []}
 
         docs_text = "\n".join(filtered_context)
 
-        final_answer = await rag_chain.ainvoke({"context": docs_text, "question": question})
+        final_answer = await rag_chain.ainvoke(
+            {"context": docs_text, "question": question}
+        )
 
         return {"answer": final_answer.content, "sources": list(sources)}
 

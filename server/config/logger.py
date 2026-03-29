@@ -89,7 +89,6 @@ def get_logger(name: str) -> logging.Logger:
     Ensures handlers are not duplicated for repeated calls with the same logger name.
     """
     logger = logging.getLogger(name)
-    logger.propagate = False  # always block propagation to root/uvicorn handlers
 
     if logger.handlers:
         return logger
