@@ -1,3 +1,6 @@
+https://www.youtube.com/watch?v=zAQxxggAGRs&t=5692s
+
+
 # Medical RAG AI Assistant
 
 A role-based RAG (Retrieval-Augmented Generation) system for medical documents. Admins upload PDFs tagged to a role; users query the system and only receive answers from documents matching their role.
