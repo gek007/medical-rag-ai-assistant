@@ -129,6 +129,36 @@ Frontend starts at `http://localhost:8501`
 
 ---
 
+## Roles & Permissions
+
+The system has three roles. Each role controls both **what actions a user can perform** and **which documents they can query**.
+
+| Role | Sign Up | Ask Questions | Upload Documents | Sees Documents Tagged |
+|---|---|---|---|---|
+| `user` | ✅ Self-service | ✅ | ❌ | `user` |
+| `doctor` | ✅ Self-service | ✅ | ❌ | `doctor` |
+| `admin` | ✅ Self-service | ✅ | ✅ | `admin` |
+
+### Key rules
+
+- **Upload** (`POST /upload`) is restricted to `admin` accounts only. When uploading, the admin assigns each document a **target role** (`user`, `doctor`, or `admin`). This controls which role of users can retrieve it.
+- **Chat** (`POST /chat`) is available to all roles. The RAG pipeline filters retrieved document chunks by the requesting user's role — a `doctor` user only receives context from documents tagged `doctor`.
+- An `admin` who uploads a document assigned to `doctor` **cannot retrieve it themselves** — they would need to assign it to `admin` to access it via chat.
+
+### Example workflow
+
+```
+Admin uploads drug-reference.pdf → assigns to role: doctor
+  └── Doctor logs in → asks "What is the dosage for amoxicillin?"
+        └── RAG retrieves only doctor-tagged chunks → LLM answers with source citation
+
+Admin uploads admin-protocols.pdf → assigns to role: admin
+  └── Admin logs in → asks "What are the escalation protocols?"
+        └── RAG retrieves only admin-tagged chunks → LLM answers
+```
+
+---
+
 ## How It Works
 
 1. **Signup** — create a user with role `admin`, `doctor`, or `user`

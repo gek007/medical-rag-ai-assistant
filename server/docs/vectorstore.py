@@ -9,7 +9,6 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pinecone import Pinecone, ServerlessSpec
-from tqdm import tqdm
 
 from config.logger import get_logger
 
@@ -31,8 +30,8 @@ if not PINECONE_INDEX_NAME:
 if not PINECONE_ENVIRONMENT:
     logger.error("PINECONE_ENVIRONMENT is not set in environment")
 
-UPLOAD_DIR = "./uploaded_docs"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+UPLOAD_DIR = Path(__file__).parent.parent / "uploaded_docs"
+UPLOAD_DIR.mkdir(exist_ok=True)
 logger.info("Upload directory ready | path=%s", UPLOAD_DIR)
 
 
@@ -70,7 +69,7 @@ def get_index():
         raise
 
 
-async def load_vectorestore(
+async def load_vectorstore(
     uploaded_files: list, role: Literal["doctor", "admin", "user"], doc_id: str
 ) -> None:
     logger.info(
@@ -81,7 +80,7 @@ async def load_vectorestore(
     )
 
     try:
-        index = get_index()
+        index = await asyncio.to_thread(get_index)
     except Exception:
         logger.error(
             "Aborting vectorstore load — could not get Pinecone index | doc_id=%s",
@@ -95,31 +94,36 @@ async def load_vectorestore(
     )
 
     for file in uploaded_files:
-        save_path = Path(UPLOAD_DIR) / file.filename
-        logger.info("Saving uploaded file | file=%s path=%s", file.filename, save_path)
+        # Use only the basename to prevent path traversal
+        safe_filename = Path(file.filename).name
+        save_path = UPLOAD_DIR / safe_filename
+        logger.info("Saving uploaded file | file=%s path=%s", safe_filename, save_path)
 
         try:
             contents = await file.read()
+            # Validate PDF magic bytes
+            if not contents.startswith(b"%PDF"):
+                raise ValueError(f"File {safe_filename} is not a valid PDF")
             with open(save_path, "wb") as f:
                 f.write(contents)
-            logger.info("File saved | file=%s", file.filename)
+            logger.info("File saved | file=%s", safe_filename)
         except Exception as e:
             logger.error(
                 "Failed to save file | file=%s error=%s",
-                file.filename,
+                safe_filename,
                 e,
                 exc_info=True,
             )
             raise
 
-        logger.info("Loading PDF | file=%s", file.filename)
+        logger.info("Loading PDF | file=%s", safe_filename)
         try:
             loader = PyPDFLoader(str(save_path))
             documents = loader.load()
-            logger.info("PDF loaded | file=%s pages=%d", file.filename, len(documents))
+            logger.info("PDF loaded | file=%s pages=%d", safe_filename, len(documents))
         except Exception as e:
             logger.error(
-                "Failed to load PDF | file=%s error=%s", file.filename, e, exc_info=True
+                "Failed to load PDF | file=%s error=%s", safe_filename, e, exc_info=True
             )
             raise
 
@@ -129,7 +133,7 @@ async def load_vectorestore(
         chunks = text_splitter.split_documents(documents)
         logger.info(
             "Text split into chunks | file=%s chunks=%d",
-            file.filename,
+            safe_filename,
             len(chunks),
         )
 
@@ -137,7 +141,7 @@ async def load_vectorestore(
         ids = [f"{doc_id}-{i}" for i in range(len(chunks))]
         metadatas = [
             {
-                "source": file.filename,
+                "source": safe_filename,
                 "role": role,
                 "doc_id": doc_id,
                 "page": chunk.metadata.get("page", 0),
@@ -148,19 +152,19 @@ async def load_vectorestore(
 
         logger.info(
             "Generating embeddings | file=%s chunks=%d",
-            file.filename,
+            safe_filename,
             len(texts),
         )
         try:
             embeddings = await asyncio.to_thread(embed_model.embed_documents, texts)
             logger.info(
                 "Embeddings generated | file=%s count=%d",
-                file.filename,
+                safe_filename,
                 len(embeddings),
             )
         except Exception as e:
             logger.error(
-                "Embedding failed | file=%s error=%s", file.filename, e, exc_info=True
+                "Embedding failed | file=%s error=%s", safe_filename, e, exc_info=True
             )
             raise
 
@@ -172,36 +176,34 @@ async def load_vectorestore(
         batch_size = 100
         logger.info(
             "Upserting vectors to Pinecone | file=%s vectors=%d batch_size=%d",
-            file.filename,
+            safe_filename,
             len(vectors),
             batch_size,
         )
         try:
-            with tqdm(total=len(vectors), desc=f"Uploading {file.filename}") as pbar:
-                for i in range(0, len(vectors), batch_size):
-                    batch = vectors[i : i + batch_size]
-                    index.upsert(vectors=batch)
-                    pbar.update(len(batch))
-                    logger.info(
-                        "Batch upserted | file=%s batch=%d-%d",
-                        file.filename,
-                        i,
-                        i + len(batch),
-                    )
+            for i in range(0, len(vectors), batch_size):
+                batch = vectors[i : i + batch_size]
+                await asyncio.to_thread(index.upsert, vectors=batch)
+                logger.info(
+                    "Batch upserted | file=%s batch=%d-%d",
+                    safe_filename,
+                    i,
+                    i + len(batch),
+                )
             logger.info(
                 "Vectors upserted | file=%s num_chunks=%d",
-                file.filename,
+                safe_filename,
                 len(vectors),
             )
         except Exception as e:
             logger.error(
                 "Pinecone upsert failed | file=%s error=%s",
-                file.filename,
+                safe_filename,
                 e,
                 exc_info=True,
             )
             raise
 
         logger.info(
-            "Vectorstore load complete | doc_id=%s file=%s", doc_id, file.filename
+            "Vectorstore load complete | doc_id=%s file=%s", doc_id, safe_filename
         )
