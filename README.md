@@ -1,26 +1,35 @@
 # Medical RAG AI Assistant
 
-A role-based RAG (Retrieval-Augmented Generation) system for medical documents, built with FastAPI, Pinecone, and OpenAI.
+A role-based RAG (Retrieval-Augmented Generation) system for medical documents. Admins upload PDFs tagged to a role; users query the system and only receive answers from documents matching their role.
 
 ## Architecture
 
 ```
-server/
-├── auth/               # Authentication (HTTP Basic Auth, bcrypt)
-│   ├── routes.py       # /signup, /login endpoints
-│   ├── models.py       # Pydantic request models
-│   └── hash_utils.py   # Password hashing
-├── docs/               # Document ingestion pipeline
-│   ├── routes.py       # /upload endpoint
-│   └── vectorstore.py  # PDF → chunks → embeddings → Pinecone
-├── config/
-│   ├── db.py           # MongoDB connection
-│   └── logger.py       # Centralized logging (console + rotating file)
-├── logs/               # Runtime log output (auto-created)
-├── uploaded_docs/      # Temporary PDF storage (auto-created)
-├── main.py             # FastAPI app + request/response middleware
-├── pyproject.toml      # Dependencies (uv)
-└── .env.example        # Environment variable template
+medical-rag-ai-assistant/
+├── server/                     # FastAPI backend
+│   ├── auth/                   # HTTP Basic Auth + bcrypt
+│   │   ├── routes.py           # /signup, /login
+│   │   ├── models.py           # Pydantic request models
+│   │   └── hash_utils.py       # Password hashing
+│   ├── chat/                   # RAG query pipeline
+│   │   ├── routes.py           # /chat
+│   │   ├── chat_query.py       # Embed → Pinecone → filter by role → LLM
+│   │   └── models.py           # Pydantic request models
+│   ├── docs/                   # Document ingestion
+│   │   ├── routes.py           # /upload (admin only)
+│   │   └── vectorstore.py      # PDF → chunks → embeddings → Pinecone
+│   ├── config/
+│   │   ├── db.py               # MongoDB connection
+│   │   └── logger.py           # Centralized logging (console + rotating file)
+│   ├── logs/                   # Runtime log output (auto-created)
+│   ├── uploaded_docs/          # Temporary PDF storage (auto-created)
+│   ├── main.py                 # FastAPI app + middleware
+│   ├── pyproject.toml          # Dependencies (uv)
+│   └── .env.example            # Environment variable template
+└── frontend/                   # Streamlit UI
+    ├── main.py                 # Login, signup, chat, admin upload
+    ├── pyproject.toml          # Dependencies (uv)
+    └── .env.example            # Frontend environment template
 ```
 
 ## Tech Stack
@@ -32,10 +41,14 @@ server/
 | Database | MongoDB Atlas |
 | Embeddings | OpenAI `text-embedding-3-small` (768 dims) |
 | Vector Store | Pinecone (serverless) |
+| LLM | Groq `llama-3.1-8b-instant` |
 | PDF Parsing | LangChain + PyPDF |
+| Frontend | Streamlit |
 | Package Manager | uv |
 
-## Setup
+---
+
+## Running the Backend
 
 ### 1. Install dependencies
 
@@ -48,57 +61,83 @@ uv sync
 
 ```bash
 cp .env.example .env
-# Fill in your API keys in .env
+# Fill in your values
 ```
 
-### 3. Run
+Required variables:
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | For `text-embedding-3-small` embeddings |
+| `GROQ_API_KEY` | For `llama-3.1-8b-instant` LLM |
+| `MONGO_URI` | MongoDB Atlas connection string |
+| `DB_NAME` | MongoDB database name |
+| `PINECONE_API_KEY` | Pinecone API key |
+| `PINECONE_ENVIRONMENT` | Pinecone region (e.g. `us-east-1`) |
+| `PINECONE_INDEX_NAME` | Pinecone index name (e.g. `medical-rag`) |
+
+### 3. Start the server
 
 ```bash
 uv run main.py
 ```
 
 Server starts at `http://localhost:8000`
+Interactive API docs available at `http://localhost:8000/docs`
+
+---
+
+## Running the Frontend
+
+### 1. Install dependencies
+
+```bash
+cd frontend
+uv sync
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# Set API_URL to point at the backend
+```
+
+```env
+API_URL=http://localhost:8000
+```
+
+### 3. Start the app
+
+```bash
+uv run streamlit run main.py
+```
+
+Frontend starts at `http://localhost:8501`
+
+---
 
 ## API Endpoints
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/health` | None | Health check |
-| POST | `/signup` | None | Register user (`role`: `admin` or `doctor`) |
-| GET | `/login` | Basic Auth | Verify credentials |
-| POST | `/upload` | Basic Auth (admin only) | Upload PDF → embed → store in Pinecone |
+| Method | Path | Auth | Role | Description |
+|---|---|---|---|---|
+| GET | `/health` | None | Any | Health check |
+| POST | `/signup` | None | Any | Register a user with a role |
+| GET | `/login` | Basic Auth | Any | Verify credentials |
+| POST | `/upload` | Basic Auth | `admin` | Upload PDF → embed → store in Pinecone |
+| POST | `/chat` | Basic Auth | Any | Ask a question, get role-filtered RAG answer |
 
-## Environment Variables
+---
 
-See `.env.example` for all required variables:
+## How It Works
 
-- `OPENAI_API_KEY` — for `text-embedding-3-small`
-- `GOOGLE_API_KEY` — reserved for future use
-- `MONGO_URI` — MongoDB Atlas connection string
-- `DB_NAME` — MongoDB database name
-- `PINECONE_API_KEY` — Pinecone API key
-- `PINECONE_ENVIRONMENT` — Pinecone region (e.g. `us-east-1`)
-- `PINECONE_INDEX_NAME` — Pinecone index name (e.g. `medical-rag`)
+1. **Signup** — create a user with role `admin`, `doctor`, or `user`
+2. **Upload** — admin uploads a PDF and assigns it a target role; the document is chunked, embedded, and stored in Pinecone with `role` metadata
+3. **Chat** — a logged-in user asks a question; the backend embeds the query, retrieves the top matching vectors from Pinecone, filters by the user's role, and sends the context to the LLM for a grounded answer
 
+---
 
-===================== How to create users ==========================
+## Screenshots
 
-1. \Signup : admin/doctor/user
-
-2. \login  (role = admin)
-
-   user: super 
-   passw: pass123
-   role: admin 
-
-3. Chat /chat (role doctor)
-
-   user: man 
-   passw: pass123  
-   role: doctor   
-
-=================== !!!!!!!!!!!!!!!!!!!!!! =======================
-
-
-![1774631416342](image/README/1774631416342.png)
-![1774631446846](image/README/1774631446846.png)
+![Upload](image/README/1774631416342.png)
+![Chat](image/README/1774631446846.png)
