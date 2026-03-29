@@ -58,18 +58,29 @@ async def answer_question(question: str, user_role: str) -> str:
         filtered_context = []
         sources = set()
 
+        logger.info(
+            "Querying Pinecone question=%s user_role=%s | results=%s",
+            question,
+            user_role,
+            results,
+        )
+
         for match in results["matches"]:
             metadata = match["metadata"]
             if metadata.get("role") == user_role:
                 filtered_context.append(metadata.get("text", ""))
                 sources.add(metadata.get("source"))
+            else:
+                logger.info("Skipping context | no match found in role=%s", user_role)
 
         if not filtered_context:
             return "No relevant information found for your question."
 
         docs_text = "\n".join(filtered_context)
 
-        final_answer = await rag_chain.ainvoke({"context": docs_text, "question": question})
+        final_answer = await rag_chain.ainvoke(
+            {"context": docs_text, "question": question}
+        )
 
         return {"answer": final_answer.content, "sources": list(sources)}
 
