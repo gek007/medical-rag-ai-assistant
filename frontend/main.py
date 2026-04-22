@@ -116,6 +116,34 @@ def chat_ui():
                 else:
                     st.error(f"Upload failed: {parse_error(res)}")
 
+    with st.sidebar:
+        st.divider()
+        st.subheader("Available Documents")
+        try:
+            docs_res = requests.get(
+                f"{API_URL}/documents",
+                auth=get_auth(),
+                timeout=15,
+            )
+            if docs_res.status_code == 200:
+                docs = docs_res.json().get("documents", [])
+                if docs:
+                    for doc in docs:
+                        label = doc.get("filename", "Unknown")
+                        role_tag = doc.get("role", "")
+                        uploaded_at = doc.get("uploaded_at", "")[:10]
+                        caption = f"Role: `{role_tag}`"
+                        if uploaded_at:
+                            caption += f" | {uploaded_at}"
+                        st.markdown(f"**{label}**")
+                        st.caption(caption)
+                else:
+                    st.info("No documents uploaded yet.")
+            else:
+                st.warning("Could not load documents.")
+        except Exception:
+            st.warning("Could not reach server.")
+
     st.write("Ask a question based on documents available to your role.")
     question = st.text_input("Question")
     if st.button("Submit") and question:
