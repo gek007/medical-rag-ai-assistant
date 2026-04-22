@@ -24,3 +24,4 @@ except (ConnectionFailure, ServerSelectionTimeoutError) as e:
 
 db = client[DB_NAME]
 users_collection = db["users"]
+documents_collection = db["documents"]

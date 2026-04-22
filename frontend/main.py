@@ -1,4 +1,5 @@
 import os
+import time
 
 import requests
 import streamlit as st
@@ -8,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 load_dotenv()
 
 API_URL = os.getenv("API_URL")
+SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "3600"))
 
 st.set_page_config(
     page_title="Medical RAG AI",
@@ -266,7 +268,13 @@ if not API_URL:
     st.stop()
 
 if "username" not in st.session_state:
-    st.session_state.update({"username": "", "password": "", "role": "", "logged_in": False})
+    st.session_state.update({
+        "username": "",
+        "password": "",
+        "role": "",
+        "logged_in": False,
+        "last_activity": time.time(),
+    })
 
 
 # ── Auth UI ────────────────────────────────────────────────────────────────────
@@ -295,6 +303,7 @@ def auth_ui() -> None:
                             "password": password,
                             "role": user_data["role"],
                             "logged_in": True,
+                            "last_activity": time.time(),
                         })
                         st.rerun()
                     else:
@@ -305,7 +314,7 @@ def auth_ui() -> None:
         with tab_signup:
             new_user = st.text_input("Username", key="signup_user", placeholder="choose a username")
             new_pass = st.text_input("Password", type="password", key="signup_pass", placeholder="choose a password")
-            new_role = st.selectbox("Role", ["doctor", "admin", "user"], key="signup_role")
+            new_role = st.selectbox("Role", ["doctor", "user"], key="signup_role")
             if st.button("Create Account", key="btn_signup"):
                 try:
                     res = requests.post(
@@ -324,6 +333,12 @@ def auth_ui() -> None:
 # ── Chat UI ────────────────────────────────────────────────────────────────────
 
 def chat_ui() -> None:
+    if time.time() - st.session_state.get("last_activity", 0) > SESSION_TIMEOUT:
+        st.session_state.clear()
+        st.warning("Your session has expired. Please log in again.")
+        st.rerun()
+    st.session_state["last_activity"] = time.time()
+
     # Sidebar ──────────────────────────────────────────
     with st.sidebar:
         st.markdown(f"""

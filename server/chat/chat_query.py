@@ -74,8 +74,8 @@ async def answer_question(question: str, user_role: str) -> AnswerResponse:
         sources = set()
 
         logger.info(
-            "Querying Pinecone | question=%s user_role=%s matches=%d",
-            question[:200],
+            "Querying Pinecone | question_len=%d user_role=%s matches=%d",
+            len(question),
             user_role,
             len(results["matches"]),
         )

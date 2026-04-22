@@ -204,6 +204,12 @@ async def load_vectorstore(
             )
             raise
 
+        try:
+            save_path.unlink(missing_ok=True)
+            logger.info("Temp file deleted | file=%s", safe_filename)
+        except Exception as e:
+            logger.warning("Could not delete temp file | file=%s error=%s", safe_filename, e)
+
         logger.info(
             "Vectorstore load complete | doc_id=%s file=%s", doc_id, safe_filename
         )
