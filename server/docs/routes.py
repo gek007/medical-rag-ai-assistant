@@ -7,12 +7,14 @@ from auth import authenticate
 from config.db import documents_collection
 from config.logger import get_logger
 
-from .vectorstore import load_vectorstore
+from .vectorstore import delete_document_vectors, load_vectorstore
 
 logger = get_logger("docs.routes")
 logger.info("docs.routes module initialized")
 
 router = APIRouter()
+
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post("/upload")
@@ -25,6 +27,12 @@ async def upload_docs(
     valid_roles: tuple[str, ...] = ("doctor", "admin", "user")
     if role not in valid_roles:
         raise HTTPException(status_code=422, detail=f"role must be one of: {', '.join(valid_roles)}")
+
+    # Read and validate size before any processing
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+    await file.seek(0)
 
     logger.info(
         "Upload request | user=%s user_role=%s file=%s target_role=%s",
@@ -90,3 +98,36 @@ async def list_documents(user=Depends(authenticate)):
         len(docs),
     )
     return {"documents": docs}
+
+
+@router.delete("/documents/{doc_id}")
+async def delete_document(doc_id: str, user=Depends(authenticate)):
+    if user["role"] != "admin":
+        logger.warning(
+            "Delete forbidden — insufficient role | user=%s role=%s doc_id=%s",
+            user["username"],
+            user["role"],
+            doc_id,
+        )
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    existing = documents_collection.find_one({"doc_id": doc_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    logger.info("Deleting document | doc_id=%s user=%s", doc_id, user["username"])
+
+    try:
+        vectors_deleted = await delete_document_vectors(doc_id)
+    except Exception as e:
+        logger.error("Failed to delete vectors | doc_id=%s error=%s", doc_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to delete document vectors")
+
+    documents_collection.delete_one({"doc_id": doc_id})
+    logger.info(
+        "Document deleted | doc_id=%s filename=%s vectors_deleted=%d",
+        doc_id,
+        existing.get("filename"),
+        vectors_deleted,
+    )
+    return {"message": f"Document {existing.get('filename')} deleted", "vectors_deleted": vectors_deleted}

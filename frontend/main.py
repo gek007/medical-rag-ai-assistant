@@ -1,4 +1,5 @@
 import os
+import time
 
 import requests
 import streamlit as st
@@ -8,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 load_dotenv()
 
 API_URL = os.getenv("API_URL")
+SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "3600"))
 
 st.set_page_config(
     page_title="Medical RAG AI Assistant",
@@ -25,6 +27,7 @@ if "username" not in st.session_state:
     st.session_state["password"] = ""
     st.session_state["role"] = ""
     st.session_state["logged_in"] = False
+    st.session_state["last_activity"] = time.time()
 
 
 def get_auth():
@@ -71,7 +74,7 @@ def auth_ui():
     with tab2:
         new_user = st.text_input("New Username", key="signup_user")
         new_pass = st.text_input("New Password", type="password", key="signup_pass")
-        new_role = st.selectbox("Role", ["doctor", "admin", "user"], key="signup_role")
+        new_role = st.selectbox("Role", ["doctor", "user"], key="signup_role")
         if st.button("Signup"):
             res = requests.post(
                 f"{API_URL}/signup",
@@ -85,6 +88,12 @@ def auth_ui():
 
 
 def chat_ui():
+    if time.time() - st.session_state.get("last_activity", 0) > SESSION_TIMEOUT:
+        st.session_state.clear()
+        st.warning("Your session has expired. Please log in again.")
+        st.rerun()
+    st.session_state["last_activity"] = time.time()
+
     st.title("Medical RAG AI Assistant")
 
     with st.sidebar:
